@@ -846,7 +846,7 @@ registerParameterType('progress', ProgressBarParameter, override=True)
 class SliderParameterItem(WidgetParameterItem):
     def makeWidget(self):
         w = QtGui.QSlider()
-        w.setOrientation(QtCore.Qt.Horizontal)
+        w.setOrientation(QtCore.Qt.Orientation.Horizontal)
         w.setMaximumHeight(20)
         w.sigChanged = w.valueChanged
         def setLimits(limits):

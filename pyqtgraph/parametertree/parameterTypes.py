@@ -41,30 +41,30 @@ class WidgetParameterItem(ParameterItem):
 
         self.asSubItem = False  # place in a child item's column 0 instead of column 1
         self.hideWidget = True  ## hide edit widget, replace with label when not selected
-                                ## set this to False to keep the editor widget always visible
-        
+        ## set this to False to keep the editor widget always visible
+
         # build widget with a display label and default button
-        w = self.makeWidget()  
+        w = self.makeWidget()
         self.widget = w
         self.eventProxy = EventProxy(w, self.widgetEventFilter)
 
         if self.asSubItem:
-            self.subItem = QtGui.QTreeWidgetItem()
+            self.subItem = QtWidgets.QTreeWidgetItem()
             self.subItem.depth = self.depth + 1
             self.subItem.setFlags(QtCore.Qt.ItemFlag.NoItemFlags)
             self.addChild(self.subItem)
 
-        self.defaultBtn = QtGui.QPushButton()
+        self.defaultBtn = QtWidgets.QPushButton()
         self.defaultBtn.setAutoDefault(False)
         self.defaultBtn.setFixedWidth(20)
         self.defaultBtn.setFixedHeight(20)
         modDir = os.path.dirname(__file__)
         self.defaultBtn.setIcon(icons.getGraphIcon('default'))
         self.defaultBtn.clicked.connect(self.defaultClicked)
-        
-        self.displayLabel = QtGui.QLabel()
-        
-        layout = QtGui.QHBoxLayout()
+
+        self.displayLabel = QtWidgets.QLabel()
+
+        layout = QtWidgets.QHBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(2)
         if not self.asSubItem:
@@ -72,15 +72,15 @@ class WidgetParameterItem(ParameterItem):
         layout.addWidget(self.displayLabel, 1)
         layout.addStretch(0)
         layout.addWidget(self.defaultBtn)
-        self.layoutWidget = QtGui.QWidget()
+        self.layoutWidget = QtWidgets.QWidget()
         self.layoutWidget.setLayout(layout)
-        
+
         if w.sigChanged is not None:
             w.sigChanged.connect(self.widgetValueChanged)
-            
+
         if hasattr(w, 'sigChanging'):
             w.sigChanging.connect(self.widgetValueChanging)
-            
+
         ## update value shown in widget. 
         opts = self.param.opts
         if opts.get('value', None) is not None:
@@ -90,7 +90,7 @@ class WidgetParameterItem(ParameterItem):
             self.widgetValueChanged()
 
         self.updateDefaultBtn()
-        
+
         self.optsChanged(self.param, self.param.opts)
 
         # set size hints
@@ -128,7 +128,7 @@ class WidgetParameterItem(ParameterItem):
         if t in ('int', 'float'):
             defs = {
                 'value': 0, 'min': None, 'max': None,
-                'step': 1.0, 'dec': False, 
+                'step': 1.0, 'dec': False,
                 'siPrefix': False, 'suffix': '', 'decimals': 3,
             }
             if t == 'int':
@@ -144,13 +144,13 @@ class WidgetParameterItem(ParameterItem):
             w.sigChanged = w.sigValueChanged
             w.sigChanging = w.sigValueChanging
         elif t == 'bool':
-            w = QtGui.QCheckBox()
+            w = QtWidgets.QCheckBox()
             w.sigChanged = w.toggled
             w.value = w.isChecked
             w.setValue = w.setChecked
             self.hideWidget = False
         elif t == 'str':
-            w = QtGui.QLineEdit()
+            w = QtWidgets.QLineEdit()
             w.setStyleSheet('border: 0px')
             w.sigChanged = w.editingFinished
             w.value = lambda: asUnicode(w.text())
@@ -177,7 +177,7 @@ class WidgetParameterItem(ParameterItem):
         else:
             raise Exception("Unknown type '%s'" % asUnicode(t))
         return w
-        
+
     def widgetEventFilter(self, obj, ev):
         ## filter widget's events
         ## catch TAB to change focus
@@ -189,12 +189,12 @@ class WidgetParameterItem(ParameterItem):
             elif ev.key() == QtCore.Qt.Key.Key_Backtab:
                 self.focusNext(forward=False)
                 return True ## don't let anyone else see this event
-            
+
         return False
-        
+
     def setFocus(self):
         self.showEditor()
-        
+
     def isFocusable(self):
         return self.param.opts['visible'] and self.param.opts['enabled'] and self.param.writable()
 
@@ -212,12 +212,12 @@ class WidgetParameterItem(ParameterItem):
                 self.param.sigValueChanged.connect(self.valueChanged)
         self.updateDisplayLabel()  ## always make sure label is updated, even if values match!
         self.updateDefaultBtn()
-        
+
     def updateDefaultBtn(self):
         ## enable/disable default btn 
         self.defaultBtn.setEnabled(
             not self.param.valueIsDefault() and self.param.opts['enabled'] and self.param.writable())
-        
+
         # hide / show
         self.defaultBtn.setVisible(self.param.hasDefault() and not self.param.readonly())
 
@@ -226,9 +226,9 @@ class WidgetParameterItem(ParameterItem):
         if value is None:
             value = self.param.value()
         opts = self.param.opts
-        if isinstance(self.widget, QtGui.QAbstractSpinBox):
+        if isinstance(self.widget, QtWidgets.QAbstractSpinBox):
             text = asUnicode(self.widget.lineEdit().text())
-        elif isinstance(self.widget, QtGui.QComboBox):
+        elif isinstance(self.widget, QtWidgets.QComboBox):
             text = self.widget.currentText()
         else:
             text = asUnicode(value)
@@ -245,11 +245,11 @@ class WidgetParameterItem(ParameterItem):
         For example: editing text before pressing enter or changing focus.
         """
         self.param.sigValueChanging.emit(self.param, self.widget.value())
-        
+
     def selected(self, sel):
         """Called when this item has been selected (sel=True) OR deselected (sel=False)"""
         ParameterItem.selected(self, sel)
-        
+
         if self.widget is None:
             return
         if sel and self.param.writable():
@@ -271,7 +271,7 @@ class WidgetParameterItem(ParameterItem):
     def limitsChanged(self, param, limits):
         """Called when the parameter's limits have changed"""
         ParameterItem.limitsChanged(self, param, limits)
-        
+
         t = self.param.opts['type']
         if t == 'int' or t == 'float':
             self.widget.setOpts(bounds=limits)
@@ -284,7 +284,7 @@ class WidgetParameterItem(ParameterItem):
     def treeWidgetChanged(self):
         """Called when this item is added or removed from a tree."""
         ParameterItem.treeWidgetChanged(self)
-        
+
         ## add all widgets for this item into the tree
         if self.widget is not None:
             tree = self.treeWidget()
@@ -318,7 +318,7 @@ class WidgetParameterItem(ParameterItem):
 
         if 'tip' in opts:
             self.widget.setToolTip(opts['tip'])
-        
+
         ## If widget is a SpinBox, pass options straight through
         if isinstance(self.widget, SpinBox):
             # send only options supported by spinbox
@@ -330,14 +330,14 @@ class WidgetParameterItem(ParameterItem):
                     sbOpts[k] = v
             self.widget.setOpts(**sbOpts)
             self.updateDisplayLabel()
-        
-            
+
+
 class EventProxy(QtCore.QObject):
     def __init__(self, qobj, callback):
         QtCore.QObject.__init__(self)
         self.callback = callback
         qobj.installEventFilter(self)
-        
+
     def eventFilter(self, obj, ev):
         return self.callback(obj, ev)
 
@@ -365,7 +365,7 @@ class SimpleParameter(Parameter):
         applicable.
         """
         Parameter.__init__(self, *args, **kargs)
-        
+
         ## override a few methods for color parameters
         if self.opts['type'] == 'color':
             self.value = self.colorValue
@@ -373,12 +373,12 @@ class SimpleParameter(Parameter):
 
     def colorValue(self):
         return fn.mkColor(Parameter.value(self))
-    
+
     def saveColorState(self, *args, **kwds):
         state = Parameter.saveState(self, *args, **kwds)
         state['value'] = fn.colorTuple(self.value())
         return state
-        
+
     def _interpretValue(self, v):
         fn = {
             'int': int,
@@ -389,10 +389,10 @@ class SimpleParameter(Parameter):
             'colormap': self._interpColormap,
         }[self.opts['type']]
         return fn(v)
-    
+
     def _interpColor(self, v):
         return fn.mkColor(v)
-    
+
     def _interpColormap(self, v):
         if not isinstance(v, ColorMap):
             raise TypeError("Cannot set colormap parameter from object %r" % v)
@@ -415,27 +415,27 @@ class GroupParameterItem(ParameterItem):
     """
     def __init__(self, param, depth):
         ParameterItem.__init__(self, param, depth)
-        self.updateDepth(depth) 
-                
+        self.updateDepth(depth)
+
         self.addItem = None
         if 'addText' in param.opts:
             addText = param.opts['addText']
             if 'addList' in param.opts:
-                self.addWidget = QtGui.QComboBox()
-                self.addWidget.setSizeAdjustPolicy(QtGui.QComboBox.SizeAdjustPolicy.AdjustToContents)
+                self.addWidget = QtWidgets.QComboBox()
+                self.addWidget.setSizeAdjustPolicy(QtWidgets.QComboBox.SizeAdjustPolicy.AdjustToContents)
                 self.updateAddList()
                 self.addWidget.currentIndexChanged.connect(self.addChanged)
             else:
-                self.addWidget = QtGui.QPushButton(addText)
+                self.addWidget = QtWidgets.QPushButton(addText)
                 self.addWidget.clicked.connect(self.addClicked)
-            w = QtGui.QWidget()
-            l = QtGui.QHBoxLayout()
+            w = QtWidgets.QWidget()
+            l = QtWidgets.QHBoxLayout()
             l.setContentsMargins(0,0,0,0)
             w.setLayout(l)
             l.addWidget(self.addWidget)
             l.addStretch()
             self.addWidgetBox = w
-            self.addItem = QtGui.QTreeWidgetItem([])
+            self.addItem = QtWidgets.QTreeWidgetItem([])
             self.addItem.setFlags(QtCore.Qt.ItemFlag.ItemIsEnabled)
             self.addItem.depth = self.depth + 1
             ParameterItem.addChild(self, self.addItem)
@@ -495,10 +495,10 @@ class GroupParameterItem(ParameterItem):
             ParameterItem.insertChild(self, self.childCount()-1, child)
         else:
             ParameterItem.addChild(self, child)
-            
+
     def optsChanged(self, param, opts):
         ParameterItem.optsChanged(self, param, opts)
-        
+
         if 'addList' in opts:
             self.updateAddList()
 
@@ -533,7 +533,7 @@ class GroupParameter(Parameter):
     instead of a button.
     """
     itemClass = GroupParameterItem
-    
+
     sigAddNew = QtCore.Signal(object, object)  # self, type
 
     def addNew(self, typ=None):
@@ -542,7 +542,7 @@ class GroupParameter(Parameter):
         By default, it emits ``sigAddNew(self, typ)``.
         """
         self.sigAddNew.emit(self, typ)
-    
+
     def setAddList(self, vals):
         """Change the list of options available for the user to add to the group."""
         self.setOpts(addList=vals)
@@ -559,11 +559,11 @@ class ListParameterItem(WidgetParameterItem):
     def __init__(self, param, depth):
         self.targetValue = None
         WidgetParameterItem.__init__(self, param, depth)
-        
+
     def makeWidget(self):
         opts = self.param.opts
         t = opts['type']
-        w = QtGui.QComboBox()
+        w = QtWidgets.QComboBox()
         w.setMaximumHeight(20)  ## set to match height of spin box and line edit
         w.sigChanged = w.currentIndexChanged
         w.value = self.value
@@ -573,12 +573,12 @@ class ListParameterItem(WidgetParameterItem):
         if len(self.forward) > 0:
             self.setValue(self.param.value())
         return w
-        
+
     def value(self):
         key = asUnicode(self.widget.currentText())
-        
+
         return self.forward.get(key, None)
-            
+
     def setValue(self, val):
         self.targetValue = val
         if val not in self.reverse[0]:
@@ -590,15 +590,15 @@ class ListParameterItem(WidgetParameterItem):
 
     def limitsChanged(self, param, limits):
         # set up forward / reverse mappings for name:value
-        
+
         if len(limits) == 0:
             limits = ['']  ## Can never have an empty list--there is always at least a singhe blank item.
-        
+
         self.forward, self.reverse = ListParameter.mapping(limits)
         try:
             self.widget.blockSignals(True)
             val = self.targetValue  #asUnicode(self.widget.currentText())
-            
+
             self.widget.clear()
             for k in self.forward:
                 self.widget.addItem(k)
@@ -630,7 +630,7 @@ class ListParameter(Parameter):
     def __init__(self, **opts):
         self.forward = OrderedDict()  ## {name: value, ...}
         self.reverse = ([], [])       ## ([value, ...], [name, ...])
-        
+
         # Parameter uses 'limits' option to define the set of allowed values
         if 'values' in opts:
             opts['limits'] = opts['values']
@@ -638,15 +638,15 @@ class ListParameter(Parameter):
             opts['limits'] = []
         Parameter.__init__(self, **opts)
         self.setLimits(opts['limits'])
-        
+
     def setLimits(self, limits):
         """Change the list of allowed values."""
         self.forward, self.reverse = self.mapping(limits)
-        
+
         Parameter.setLimits(self, limits)
         if len(self.reverse[0]) > 0 and self.value() not in self.reverse[0]:
             self.setValue(self.reverse[0][0])
-            
+
     @staticmethod
     def mapping(limits):
         # Return forward and reverse mapping objects given a limit specification
@@ -667,17 +667,15 @@ class ListParameter(Parameter):
 
 registerParameterType('list', ListParameter, override=True)
 
-
-
 class ActionParameterItem(ParameterItem):
     """ParameterItem displaying a clickable button."""
     def __init__(self, param, depth):
         ParameterItem.__init__(self, param, depth)
-        self.layoutWidget = QtGui.QWidget()
-        self.layout = QtGui.QHBoxLayout()
+        self.layoutWidget = QtWidgets.QWidget()
+        self.layout = QtWidgets.QHBoxLayout()
         self.layout.setContentsMargins(0, 0, 0, 0)
         self.layoutWidget.setLayout(self.layout)
-        self.button = QtGui.QPushButton()
+        self.button = QtWidgets.QPushButton()
         #self.layout.addSpacing(100)
         self.layout.addWidget(self.button)
         self.layout.addStretch()
@@ -690,7 +688,7 @@ class ActionParameterItem(ParameterItem):
         tree = self.treeWidget()
         if tree is None:
             return
-        
+
         self.setFirstColumnSpanned(True)
         tree.setItemWidget(self, 0, self.layoutWidget)
 
@@ -709,7 +707,7 @@ class ActionParameterItem(ParameterItem):
 
     def buttonClicked(self):
         self.param.activate()
-        
+
 class ActionParameter(Parameter):
     """Used for displaying a button within the tree.
 
@@ -717,21 +715,21 @@ class ActionParameter(Parameter):
     """
     itemClass = ActionParameterItem
     sigActivated = QtCore.Signal(object)
-    
+
     def activate(self):
         self.sigActivated.emit(self)
         self.emitStateChanged('activated', None)
-        
+
 registerParameterType('action', ActionParameter, override=True)
 
 
 class TextParameterItem(WidgetParameterItem):
     """ParameterItem displaying a QTextEdit widget."""
-    
+
     def makeWidget(self):
         self.hideWidget = False
         self.asSubItem = True
-        self.textBox = w = QtGui.QTextEdit()
+        self.textBox = w = QtWidgets.QTextEdit()
         w.sizeHint = lambda: QtCore.QSize(300, 100)
         w.value = lambda: str(w.toPlainText())
         w.setValue = w.setPlainText
@@ -758,107 +756,103 @@ class Emitter(QtCore.QObject):
 
 def popupFilePicker(parent=None, winTitle='', fileFilter='', existing=True, asFolder=False,
                     selectMultiple=False, startDir=None, **kwargs):
-  """
-  Thin wrapper around Qt file picker dialog. Used internally so all options are consistent
-  among all requests for external file information
+    """
+    Thin wrapper around Qt file picker dialog. Used internally so all options are consistent
+    among all requests for external file information
 
-  :param parent: Dialog parent
-  :param winTitle: Title of dialog window
-  :param fileFilter: File filter as required by the Qt dialog
-  :param existing: Whether the file is already existing, or is being newly created
-  :param asFolder: Whether the dialog should select folders or files
-  :param selectMultiple: Whether multiple files can be selected. If `asFolder` is
-    *True*, this parameter is ignored.
-  :param startDir: Where in the file system to open this dialog
-  :param kwargs: Consumes additional arguments so dictionary unpacking can be used
-    with the lengthy file signature. In the future, this may allow additional config
-    options.
-  """
-  fileDlg = QtWidgets.QFileDialog(parent)
-  fileMode = fileDlg.AnyFile
-  opts = fileDlg.options()
-  if existing:
-    # Existing files only
-    fileMode = fileDlg.ExistingFiles if selectMultiple else fileDlg.ExistingFile
-  else:
-    fileDlg.setAcceptMode(fileDlg.AcceptSave)
-  if asFolder:
-    fileMode = fileDlg.Directory
-    opts |= fileDlg.ShowDirsOnly
-  fileDlg.setFileMode(fileMode)
-  fileDlg.setOptions(opts)
-  fileDlg.setModal(True)
-  if startDir is not None:
-    fileDlg.setDirectory(startDir)
-  fileDlg.setNameFilter(fileFilter)
+    :param parent: Dialog parent
+    :param winTitle: Title of dialog window
+    :param fileFilter: File filter as required by the Qt dialog
+    :param existing: Whether the file is already existing, or is being newly created
+    :param asFolder: Whether the dialog should select folders or files
+    :param selectMultiple: Whether multiple files can be selected. If `asFolder` is
+      *True*, this parameter is ignored.
+    :param startDir: Where in the file system to open this dialog
+    :param kwargs: Consumes additional arguments so dictionary unpacking can be used
+      with the lengthy file signature. In the future, this may allow additional config
+      options.
+    """
+    fileDlg = QtWidgets.QFileDialog(parent)
+    fileMode = fileDlg.AnyFile
+    opts = fileDlg.options()
+    if existing:
+        # Existing files only
+        fileMode = fileDlg.ExistingFiles if selectMultiple else fileDlg.ExistingFile
+    else:
+        fileDlg.setAcceptMode(fileDlg.AcceptSave)
+    if asFolder:
+        fileMode = fileDlg.Directory
+        opts |= fileDlg.ShowDirsOnly
+    fileDlg.setFileMode(fileMode)
+    fileDlg.setOptions(opts)
+    fileDlg.setModal(True)
+    if startDir is not None:
+        fileDlg.setDirectory(startDir)
+    fileDlg.setNameFilter(fileFilter)
 
-  fileDlg.setWindowTitle(winTitle)
+    fileDlg.setWindowTitle(winTitle)
 
-  if fileDlg.exec_():
-    # Append filter type
-    singleExtReg = r'(\.\w+)'
-    # Extensions of type 'myfile.ext.is.multi.part' need to capture repeating pattern of singleExt
-    suffMatch = re.search(rf'({singleExtReg}+)', fileDlg.selectedNameFilter())
-    if suffMatch:
-      # Strip leading '.' if it exists
-      ext = suffMatch.group(1)
-      if ext.startswith('.'):
-        ext = ext[1:]
-      fileDlg.setDefaultSuffix(ext)
-    fList = fileDlg.selectedFiles()
-  else:
-    fList = []
+    if fileDlg.exec_():
+        # Append filter type
+        singleExtReg = r'(\.\w+)'
+        # Extensions of type 'myfile.ext.is.multi.part' need to capture repeating pattern of singleExt
+        suffMatch = re.search(rf'({singleExtReg}+)', fileDlg.selectedNameFilter())
+        if suffMatch:
+            # Strip leading '.' if it exists
+            ext = suffMatch.group(1)
+            if ext.startswith('.'):
+                ext = ext[1:]
+            fileDlg.setDefaultSuffix(ext)
+        fList = fileDlg.selectedFiles()
+    else:
+        fList = []
 
-  if selectMultiple:
-    return fList
-  elif len(fList) > 0:
-    return fList[0]
-  else:
-    return None
+    if selectMultiple:
+        return fList
+    elif len(fList) > 0:
+        return fList[0]
+    else:
+        return None
 
 class FilePickerParameterItem(WidgetParameterItem):
+    def __init__(self, param, depth):
+        self._emitter = Emitter()
+        super().__init__(param, depth)
 
+    def makeWidget(self):
+        param = self.param
 
-  def __init__(self, param, depth):
-      self._emitter = Emitter()
-      super().__init__(param, depth)
+        if param.opts['value'] is None:
+            param.opts['value'] = ''
+        fpath = param.opts['value']
+        param.opts.setdefault('asFolder', False)
+        param.opts.setdefault('existing', True)
+        button = QtWidgets.QPushButton()
+        button.setValue = lambda val: button.setText(str(val))
+        button.sigChanged = self._emitter.sigChanged
+        button.value = button.text
+        button.setText(fpath)
+        button.clicked.connect(self._retrieveFolderName_gui)
 
-  def makeWidget(self):
-    param = self.param
+        return button
 
-    if param.opts['value'] is None:
-      param.opts['value'] = ''
-    fpath = param.opts['value']
-    param.opts.setdefault('asFolder', False)
-    param.opts.setdefault('existing', True)
-    button = QtWidgets.QPushButton()
-    button.setValue = lambda val: button.setText(str(val))
-    button.sigChanged = self._emitter.sigChanged
-    button.value = button.text
-    button.setText(fpath)
-    button.clicked.connect(self._retrieveFolderName_gui)
-
-    return button
-
-  def _retrieveFolderName_gui(self):
-    curVal = self.param.value()
-    useDir = curVal or str(os.getcwd())
-    opts = self.param.opts
-    opts['startDir'] = str(Path(useDir).absolute())
-    fname = popupFilePicker(None, 'Select File', **opts)
-    if fname is None:
-      return
-    self.param.setValue(fname)
-    self._emitter.sigChanged.emit(self, fname)
+    def _retrieveFolderName_gui(self):
+        curVal = self.param.value()
+        useDir = curVal or str(os.getcwd())
+        opts = self.param.opts
+        opts['startDir'] = str(Path(useDir).absolute())
+        fname = popupFilePicker(None, 'Select File', **opts)
+        if fname is None:
+            return
+        self.param.setValue(fname)
+        self._emitter.sigChanged.emit(self, fname)
 
 class FilePickerParameter(Parameter):
-  itemClass = FilePickerParameterItem
-
-registerParameterType('file', FilePickerParameter, override=True)
+    itemClass = FilePickerParameterItem
 
 class ProgressBarParameterItem(WidgetParameterItem):
     def makeWidget(self):
-        w = QtGui.QProgressBar()
+        w = QtWidgets.QProgressBar()
         w.setMaximumHeight(20)
         w.sigChanged = w.valueChanged
         self.widget = w
@@ -868,10 +862,20 @@ class ProgressBarParameterItem(WidgetParameterItem):
 class ProgressBarParameter(Parameter):
     itemClass = ProgressBarParameterItem
 
-registerParameterType('progress', ProgressBarParameter, override=True)
-
 class SliderParameterItem(WidgetParameterItem):
-    slider: QtGui.QSlider
+    """
+    ============== ========================================================
+    **Arguments:**
+    limits         [start, stop] numbers
+    step:          Defaults to 1, the spacing between each slider tick
+    span:          Instead of limits + step, span can be set to specify
+                   the range of slider options (e.g. np.linspace(-pi, pi, 100))
+    format:        Format string to determine number of decimals to show, etc.
+                   Defaults to display based on span dtype
+    precision:     int number of decimals to keep for float tick spaces
+    ============== ========================================================
+    """
+    slider: QtWidgets.QSlider
     span: np.ndarray
     charSpan: np.ndarray
 
@@ -907,13 +911,13 @@ class SliderParameterItem(WidgetParameterItem):
         opts = param.opts
         self._suffix = opts.get('suffix')
 
-        self.slider = QtGui.QSlider()
+        self.slider = QtWidgets.QSlider()
         self.slider.setOrientation(QtCore.Qt.Orientation.Horizontal)
-        lbl = QtGui.QLabel()
+        lbl = QtWidgets.QLabel()
         lbl.setAlignment(QtCore.Qt.AlignmentFlag.AlignLeft)
 
-        w = QtGui.QWidget()
-        layout = QtGui.QHBoxLayout()
+        w = QtWidgets.QWidget()
+        layout = QtWidgets.QHBoxLayout()
         w.setLayout(layout)
         layout.addWidget(lbl)
         layout.addWidget(self.slider)
@@ -981,11 +985,9 @@ class SliderParameterItem(WidgetParameterItem):
 class SliderParameter(Parameter):
     itemClass = SliderParameterItem
 
-registerParameterType('slider', SliderParameter, override=True)
-
 class FontParameterItem(WidgetParameterItem):
     def makeWidget(self):
-        w = QtGui.QFontComboBox()
+        w = QtWidgets.QFontComboBox()
         w.setMaximumHeight(20)
         w.sigChanged = w.currentFontChanged
         w.value = w.currentFont
@@ -997,11 +999,9 @@ class FontParameterItem(WidgetParameterItem):
 class FontParameter(Parameter):
     itemClass = FontParameterItem
 
-registerParameterType('font', FontParameter, override=True)
-
 class CalendarParameterItem(WidgetParameterItem):
     def makeWidget(self):
-        w = QtGui.QCalendarWidget()
+        w = QtWidgets.QCalendarWidget()
         w.setMaximumHeight(200)
         w.sigChanged = w.selectionChanged
         w.value = w.selectedDate
@@ -1014,17 +1014,13 @@ class CalendarParameterItem(WidgetParameterItem):
 class CalendarParameter(Parameter):
     itemClass = CalendarParameterItem
 
-registerParameterType('calendar', CalendarParameter, override=True)
-
-
-
 class PenParameterItem(ParameterItem):
     def __init__(self, param, depth):
         ParameterItem.__init__(self, param, depth)
-        self.layoutWidget = QtGui.QWidget()
-        self.layout = QtGui.QHBoxLayout()
+        self.layoutWidget = QtWidgets.QWidget()
+        self.layout = QtWidgets.QHBoxLayout()
         self.layoutWidget.setLayout(self.layout)
-        self.button = QtGui.QPushButton()
+        self.button = QtWidgets.QPushButton()
         #larger button
         self.button.setFixedWidth(100)
         self.layout.addWidget(self.button)
@@ -1034,7 +1030,6 @@ class PenParameterItem(ParameterItem):
         #clear button for drawing, override paint event
         self.setText(0, '')
         self.button.paintEvent = self.buttonPaintEvent
-        
 
     def value(self):
         return self.pen
@@ -1054,7 +1049,7 @@ class PenParameterItem(ParameterItem):
     def buttonClicked(self):
         #open up the pen selector dialog
         self.oldPen = fn.mkPen(self.param.value())
-        self.pdialog = PenSelectorDialog(fn.mkPen(self.pen),QtGui.QApplication.activeWindow())
+        self.pdialog = PenSelectorDialog(fn.mkPen(self.pen),QtWidgets.QApplication.activeWindow())
         self.pdialog.penChanged.connect(self.penChanged)
         self.pdialog.finished.connect(self.penChangeFinished)
         self.pdialog.exec()
@@ -1076,7 +1071,7 @@ class PenParameterItem(ParameterItem):
 
     def buttonPaintEvent(self, event):
         #draw a button as usual
-        QtGui.QPushButton.paintEvent(self.button, event)
+        QtWidgets.QPushButton.paintEvent(self.button, event)
 
         path = QtGui.QPainterPath()
         displaySize = self.button.size()
@@ -1101,3 +1096,8 @@ class PenParameter(Parameter):
         self.emitStateChanged('penChanged', pen)
 
 registerParameterType('pen', PenParameter, override=True)
+registerParameterType('progress', ProgressBarParameter, override=True)
+registerParameterType('file', FilePickerParameter, override=True)
+registerParameterType('slider', SliderParameter, override=True)
+registerParameterType('calendar', CalendarParameter, override=True)
+registerParameterType('font', FontParameter, override=True)

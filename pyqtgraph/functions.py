@@ -214,7 +214,7 @@ def mkColor(*args):
     types. Accepted arguments are:
     
     ================ ================================================
-     'c'             one of: r, g, b, c, m, y, k, w                      
+     'c'             one of: r, g, b, c, m, y, k, w
      R, G, B, [A]    integers 0-255
      (R, G, B, [A])  tuple of integers 0-255
      float           greyscale, 0.0-1.0
@@ -307,7 +307,7 @@ def mkBrush(*args, **kwds):
     elif len(args) == 1:
         arg = args[0]
         if arg is None:
-            return QtGui.QBrush(QtCore.Qt.NoBrush)
+            return QtGui.QBrush(QtCore.Qt.BrushStyle.NoBrush)
         elif isinstance(arg, QtGui.QBrush):
             return QtGui.QBrush(arg)
         else:
@@ -330,7 +330,6 @@ def mkPen(*args, **kargs):
         mkPen(None)   # (no pen)
     
     In these examples, *color* may be replaced with any arguments accepted by :func:`mkColor() <pyqtgraph.mkColor>`    """
-    
     color = kargs.get('color', None)
     width = kargs.get('width', 1)
     style = kargs.get('style', None)
@@ -345,7 +344,7 @@ def mkPen(*args, **kargs):
         if isinstance(arg, QtGui.QPen):
             return QtGui.QPen(arg)  ## return a copy of this pen
         elif arg is None:
-            style = QtCore.Qt.NoPen
+            style = QtCore.Qt.PenStyle.NoPen
         else:
             color = arg
     if len(args) > 1:
@@ -372,12 +371,169 @@ def hsvColor(hue, sat=1.0, val=1.0, alpha=1.0):
     c = QtGui.QColor()
     c.setHsvF(hue, sat, val, alpha)
     return c
-
     
+# Matrices and math taken from "CIELab Color Space" by Gernot Hoffmann
+# http://docs-hoffmann.de/cielab03022003.pdf
+MATRIX_XYZ_FROM_RGB = np.array( (
+    ( 0.4124, 0.3576, 0.1805),
+    ( 0.2126, 0.7152, 0.0722),
+    ( 0.0193, 0.1192, 0.9505) ) )
+    
+MATRIX_RGB_FROM_XYZ = np.array( (
+    ( 3.2410,-1.5374,-0.4985),
+    (-0.9692, 1.8760, 0.0416),
+    ( 0.0556,-0.2040, 1.0570) ) )
+
+VECTOR_XYZn = np.array( ( 0.9505, 1.0000, 1.0891) ) # white reference at illuminant D65
+
+def CIELabColor(L, a, b, alpha=1.0):
+    """
+    Generates as QColor from CIE L*a*b* values.
+    
+    Parameters
+    ----------
+        L: float
+            Lightness value ranging from 0 to 100
+        a, b: float
+            (green/red) and (blue/yellow) coordinates, typically -127 to +127.
+        alpha: float, optional
+            Opacity, ranging from 0 to 1
+
+    Notes
+    -----
+    The CIE L*a*b* color space parametrizes color in terms of a luminance `L` 
+    and the `a` and `b` coordinates that locate the hue in terms of
+    a "green to red" and a "blue to yellow" axis.
+    
+    These coordinates seek to parametrize human color preception in such a way
+    that the Euclidean distance between the coordinates of two colors represents
+    the visual difference between these colors. In particular, the difference
+    
+    ΔE = sqrt( (L1-L2)² + (a1-a2)² + (b1-b2)² ) = 2.3
+    
+    is considered the smallest "just noticeable difference" between colors.
+    
+    This simple equation represents the CIE76 standard. Later standards CIE94
+    and CIE2000 refine the difference calculation ΔE, while maintaining the 
+    L*a*b* coordinates.
+    
+    Alternative (and arguably more accurate) methods exist to quantify color
+    difference, but the CIELab color space remains a convenient approximation.
+    
+    Under a known illumination, assumed to be white standard illuminant D65 
+    here, a CIELab color induces a response in the human eye
+    that is described by the tristimulus value XYZ. Once this is known, an
+    sRGB color can be calculated to induce the same response.
+    
+    More information and underlying mathematics can be found in e.g.
+    "CIELab Color Space" by Gernot Hoffmann, available at
+    http://docs-hoffmann.de/cielab03022003.pdf .
+    
+    Also see :func:`colorDistance() <pyqtgraph.colorDistance>`.
+    """ 
+    # convert to tristimulus XYZ values
+    vec_XYZ = np.full(3, ( L +16)/116 )  # Y1 = (L+16)/116
+    vec_XYZ[0] += a / 500                # X1 = (L+16)/116 + a/500
+    vec_XYZ[2] -= b / 200                # Z1 = (L+16)/116 - b/200 
+    for idx, val in enumerate(vec_XYZ):
+        if val > 0.20689:
+            vec_XYZ[idx] = vec_XYZ[idx]**3
+        else:
+            vec_XYZ[idx] = (vec_XYZ[idx] - 16/116) / 7.787
+    vec_XYZ = VECTOR_XYZn * vec_XYZ # apply white reference
+    # print(f'XYZ: {vec_XYZ}')
+
+    # convert XYZ to linear RGB
+    vec_RGB =  MATRIX_RGB_FROM_XYZ @ vec_XYZ
+    # gamma-encode linear RGB
+    arr_sRGB = np.zeros(3)
+    for idx, val in enumerate( vec_RGB[:3] ):
+        if val > 0.0031308: # (t) RGB value for linear/exponential transition
+            arr_sRGB[idx] = 1.055 * val**(1/2.4) - 0.055
+        else:
+            arr_sRGB[idx] = 12.92 * val # (s)
+    arr_sRGB = clip_array( arr_sRGB, 0.0, 1.0 ) # avoid QColor errors
+    qcol = QtGui.QColor()
+    qcol.setRgbF( *arr_sRGB )
+    if alpha < 1.0: qcol.setAlpha(alpha)
+    return qcol
+
+def colorCIELab(qcol):
+    """
+    Describes a QColor by an array of CIE L*a*b* values.
+    Also see :func:`CIELabColor() <pyqtgraph.CIELabColor>` .
+
+    Parameters
+    ----------
+    qcol: QColor
+        QColor to be converted
+
+    Returns
+    -------
+    NumPy array 
+        Color coordinates `[L, a, b]`.
+    """
+    srgb = qcol.getRgbF()[:3] # get sRGB values from QColor
+    # convert gamma-encoded sRGB to linear:
+    vec_RGB = np.zeros(3)
+    for idx, val in enumerate( srgb ):
+        if val > (12.92 * 0.0031308): # coefficients (s) * (t)
+            vec_RGB[idx] = ((val+0.055)/1.055)**2.4
+        else:
+            vec_RGB[idx] = val / 12.92 # (s) coefficient
+    # converted linear RGB to tristimulus XYZ:
+    vec_XYZ = MATRIX_XYZ_FROM_RGB @ vec_RGB
+    # normalize with white reference and convert to L*a*b* values
+    vec_XYZ1 = vec_XYZ / VECTOR_XYZn 
+    for idx, val in enumerate(vec_XYZ1):
+        if val > 0.008856:
+            vec_XYZ1[idx] = vec_XYZ1[idx]**(1/3)
+        else:
+            vec_XYZ1[idx] = 7.787*vec_XYZ1[idx] + 16/116
+    vec_Lab = np.array([
+        116 * vec_XYZ1[1] - 16,              # Y1
+        500 * (vec_XYZ1[0] - vec_XYZ1[1]),   # X1 - Y1
+        200 * (vec_XYZ1[1] - vec_XYZ1[2])] ) # Y1 - Z1
+    return vec_Lab
+
+def colorDistance(colors, metric='CIE76'):
+    """
+    Returns the perceptual distances between a sequence of QColors.
+    See :func:`CIELabColor() <pyqtgraph.CIELabColor>` for more information.
+
+    Parameters
+    ----------
+        colors: list of QColor
+            Two or more colors to calculate the distances between.
+        metric: string, optional
+            Metric used to determined the difference. Only 'CIE76' is supported at this time,
+            where a distance of 2.3 is considered a "just noticeable difference".
+            The default may change as more metrics become available.
+    
+    Returns 
+    -------
+    List
+        The `N-1` sequential distances between `N` colors.
+    """
+    metric = metric.upper()
+    if len(colors) < 1: return np.array([], dtype=np.float)
+    if metric == 'CIE76':
+        dist = []
+        lab1 = None
+        for col in colors:
+            lab2 = colorCIELab(col)
+            if lab1 is None: #initialize on first element
+                lab1 = lab2 
+                continue
+            dE = math.sqrt( np.sum( (lab1-lab2)**2 ) )
+            dist.append(dE)
+            lab1 = lab2
+        return np.array(dist)
+    raise ValueError(f'Metric {metric} is not available.')
+
 def colorTuple(c):
     """Return a tuple (R,G,B,A) from a QColor"""
     return (c.red(), c.green(), c.blue(), c.alpha())
-
 
 def colorStr(c):
     """Generate a hex string code from a QColor"""
@@ -1403,15 +1559,9 @@ def ndarray_to_qimage(arr, fmt):
     # will trigger the COW mechanism, i.e. a copy is made under the hood.
 
     if QT_LIB.startswith('PyQt'):
-        if QtCore.PYQT_VERSION == 0x60000:
-            # PyQt5          -> const
-            # PyQt6 >= 6.0.1 -> const
-            # PyQt6 == 6.0.0 -> non-const
-            img_ptr = Qt.sip.voidptr(arr)
-        else:
-            # PyQt5          -> non-const
-            # PyQt6 >= 6.0.1 -> non-const
-            img_ptr = int(Qt.sip.voidptr(arr))  # or arr.ctypes.data
+        # PyQt5          -> non-const
+        # PyQt6 >= 6.0.1 -> non-const
+        img_ptr = int(Qt.sip.voidptr(arr))  # or arr.ctypes.data
     else:
         # bindings that support ndarray
         # PyQt5          -> const
@@ -1462,7 +1612,7 @@ def makeQImage(imgData, alpha=None, copy=True, transpose=True):
     
     copied = False
     if imgData.ndim == 2:
-        imgFormat = QtGui.QImage.Format_Grayscale8
+        imgFormat = QtGui.QImage.Format.Format_Grayscale8
     elif imgData.ndim == 3:
         # If we didn't explicitly specify alpha, check the array shape.
         if alpha is None:
@@ -1481,9 +1631,9 @@ def makeQImage(imgData, alpha=None, copy=True, transpose=True):
         profile("add alpha channel")
         
         if alpha:
-            imgFormat = QtGui.QImage.Format_ARGB32
+            imgFormat = QtGui.QImage.Format.Format_ARGB32
         else:
-            imgFormat = QtGui.QImage.Format_RGB32
+            imgFormat = QtGui.QImage.Format.Format_RGB32
     else:
         raise TypeError("Image array must have ndim = 2 or 3.")
         
@@ -1549,7 +1699,7 @@ def imageToArray(img, copy=False, transpose=True):
     arr = qimage_to_ndarray(img)
 
     fmt = img.format()
-    if fmt == img.Format_RGB32:
+    if fmt == img.Format.Format_RGB32:
         arr[...,3] = 255
     
     if copy:
@@ -1755,6 +1905,22 @@ def arrayToQPath(x, y, connect='all', finiteCheck=True):
 
     use_qpolygonf = connect == 'all'
 
+    isfinite = None
+    if connect == 'finite':
+        isfinite = np.isfinite(x) & np.isfinite(y)
+        if not finiteCheck:
+            # if user specified to skip finite check, then that forces use_qpolygonf
+            use_qpolygonf = True
+        else:
+            # otherwise use a heuristic
+            # if non-finite aren't that many, then use_qpolyponf
+            nonfinite_cnt = n - np.sum(isfinite)
+            if nonfinite_cnt / n < 2 / 100:
+                use_qpolygonf = True
+                finiteCheck = False
+            if nonfinite_cnt == 0:
+                connect = 'all'
+
     if use_qpolygonf:
         backstore = create_qpolygonf(n)
         arr = np.frombuffer(ndarray_from_qpolygonf(backstore), dtype=[('x', 'f8'), ('y', 'f8')])
@@ -1763,7 +1929,7 @@ def arrayToQPath(x, y, connect='all', finiteCheck=True):
         arr = np.frombuffer(backstore, dtype=[('c', '>i4'), ('x', '>f8'), ('y', '>f8')],
             count=n, offset=4)
         struct.pack_into('>i', backstore, 0, n)
-        # cStart, fillRule (Qt.OddEvenFill)
+        # cStart, fillRule (Qt.FillRule.OddEvenFill)
         struct.pack_into('>ii', backstore, 4+n*20, 0, 0)
 
     # Fill array with vertex values
@@ -1774,9 +1940,9 @@ def arrayToQPath(x, y, connect='all', finiteCheck=True):
     # this behavior started in Qt 5.12.3 and was introduced in this commit
     # https://github.com/qt/qtbase/commit/c04bd30de072793faee5166cff866a4c4e0a9dd7
     # We therefore replace non-finite values 
-    isfinite = None
     if finiteCheck:
-        isfinite = np.isfinite(x) & np.isfinite(y)
+        if isfinite is None:
+            isfinite = np.isfinite(x) & np.isfinite(y)
         if not np.all(isfinite):
             # credit: Divakar https://stackoverflow.com/a/41191127/643629
             mask = ~isfinite
@@ -1801,9 +1967,53 @@ def arrayToQPath(x, y, connect='all', finiteCheck=True):
         # A point will anyway not connect to an invalid point regardless of the
         # 'c' value of the invalid point. Therefore, we should set 'c' to 0 for
         # the next point of an invalid point.
-        if isfinite is None:
-            isfinite = np.isfinite(x) & np.isfinite(y)
-        arr[1:]['c'] = isfinite[:-1]
+        if not use_qpolygonf:
+            arr[1:]['c'] = isfinite[:-1]
+        else:
+            sidx = np.nonzero(~isfinite)[0] + 1
+            chunks = np.split(arr, sidx)    # note: the chunks are views
+
+            # create a single polygon able to hold the largest chunk
+            maxlen = max(len(chunk) for chunk in chunks)
+            subpoly = create_qpolygonf(maxlen)
+            subarr = np.frombuffer(ndarray_from_qpolygonf(subpoly), dtype=arr.dtype)
+
+            # resize and fill do not change the capacity
+            if hasattr(subpoly, 'resize'):
+                subpoly_resize = subpoly.resize
+            else:
+                # PyQt will be less efficient
+                subpoly_resize = lambda n, v=QtCore.QPointF() : subpoly.fill(v, n)
+
+            # notes:
+            # - we backfill the non-finite in order to get the same image as the
+            #   old codepath on the CI. somehow P1--P2 gets rendered differently
+            #   from P1--P2--P2
+            # - we do not generate MoveTo(s) that are not followed by a LineTo,
+            #   thus the QPainterPath can be different from the old codepath's
+
+            # all chunks except the last chunk have a trailing non-finite
+            for chunk in chunks[:-1]:
+                lc = len(chunk)
+                if lc <= 1:
+                    # len 1 means we have a string of non-finite
+                    continue
+                subpoly_resize(lc)
+                subarr[:lc] = chunk
+                subarr[lc-1] = subarr[lc-2] # fill non-finite with its neighbour
+                path.addPolygon(subpoly)
+
+            # handle last chunk, which is either all-finite or empty
+            for chunk in chunks[-1:]:
+                lc = len(chunk)
+                if lc <= 1:
+                    # can't draw a line with just 1 point
+                    continue
+                subpoly_resize(lc)
+                subarr[:lc] = chunk
+                path.addPolygon(subpoly)
+
+            return path
     elif connect == 'array':
         arr[1:]['c'] = connect_array[:-1]
     else:

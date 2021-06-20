@@ -13,8 +13,7 @@ examples = OrderedDict([
     ('Plot Customization', 'customPlot.py'),
     ('Timestamps on x axis', 'DateAxisItem.py'),
     ('Image Analysis', 'imageAnalysis.py'),
-    ('Color Maps', 'colorMaps.py'),
-    ('Color Gradient Plots', 'ColorGradientPlots.py'),
+    ('Matrix Display', 'MatrixDisplayExample.py'),
     ('ViewBox Features', Namespace(filename='ViewBoxFeatures.py', recommended=True)),
     ('Dock widgets', 'dockarea.py'),
     ('Console', 'ConsoleWidget.py'),
@@ -30,6 +29,11 @@ examples = OrderedDict([
         ('Special relativity', 'relativity_demo.py'),
         ('Verlet chain', 'verlet_chain_demo.py'),
         ('Koch Fractal', 'fractal.py'),
+    ])),
+    ('Colors', OrderedDict([
+        ('Color Maps', 'colorMaps.py'),
+        ('Color Map Linearization', 'colorMapsLinearized.py'),
+        ('Color Gradient Plots', 'ColorGradientPlots.py')
     ])),
     ('GraphicsItems', OrderedDict([
         ('Scatter Plot', 'ScatterPlot.py'),

@@ -90,6 +90,10 @@ conditionalExamples = {
         not darwin_opengl_broken,
         reason=darwin_opengl_reason
     ),
+    'GLTextItem.py': exceptionCondition(
+        not darwin_opengl_broken,
+        reason=darwin_opengl_reason
+    ),
     'GLLinePlotItem.py': exceptionCondition(
         not darwin_opengl_broken,
         reason=darwin_opengl_reason
@@ -205,8 +209,8 @@ except:
     process.stderr.close()
 
     if (fail or
-        'exception' in stderr.lower() or
-        'error' in stderr.lower()):
+        'Exception:' in stderr or
+        'Error:' in stderr):
         if (not fail 
             and name == "RemoteGraphicsView" 
             and "pyqtgraph.multiprocess.remoteproxy.ClosedError" in stderr):

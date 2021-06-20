@@ -14,15 +14,17 @@ import pyqtgraph as pg
 from pyqtgraph.Qt import QtGui, QtCore, QtWidgets
 from pyqtgraph.ptime import time
 import pyqtgraph.parametertree as ptree
+from pyqtgraph.parametertree.parameterTypes import GroupParameter as GP, Parameter
 import pyqtgraph.graphicsItems.ScatterPlotItem
 import re
+from contextlib import ExitStack
 
 translate = QtCore.QCoreApplication.translate
 
 app = pg.mkQApp()
 
 pt = ptree.ParameterTree(showHeader=False)
-param = ptree.Parameter.create(name=translate('ScatterPlot', 'Parameters'), type='group')
+param = Parameter.create(name=translate('ScatterPlot', 'Parameters'), type='group')
 pt.setParameters(param)
 p = pg.PlotWidget()
 splitter = QtWidgets.QSplitter()
@@ -44,10 +46,11 @@ def fmt(name):
     name = name.replace('_', ' ')
     return translate('ScatterPlot', name.title().strip() + ':    ')
 
-oldFmt = ptree.Parameter.RUN_TITLE_FORMAT
-ptree.Parameter.RUN_TITLE_FORMAT = fmt
+# Exit stack to avoid indentation for this entire file
+stack = ExitStack()
+stack.enter_context(GP.interactiveOptsContext(runTitleFormat=fmt))
 
-@param.interact_decorator(nest=False,
+@param.interactDecorator(nest=False,
                           count=dict(limits=[1, None], step=100),
                           size=dict(limits=[1, None])
                           )
@@ -68,7 +71,7 @@ def mkDataAndItem(count=500, size=10):
     mkItem()
 
 
-@param.interact_decorator(nest=False)
+@param.interactDecorator(nest=False)
 def mkItem(pxMode=True, _USE_QRECT=pyqtgraph.graphicsItems.ScatterPlotItem._USE_QRECT,
            useCache=True):
     global item
@@ -78,7 +81,7 @@ def mkItem(pxMode=True, _USE_QRECT=pyqtgraph.graphicsItems.ScatterPlotItem._USE_
     p.clear()
     p.addItem(item)
 
-@param.interact_decorator(nest=False)
+@param.interactDecorator(nest=False)
 def getData(randomize=False):
     pos = data['pos']
     pen = data['pen']
@@ -97,7 +100,7 @@ modeOpts = dict(name='mode',
                         translate('ScatterPlot', 'Simulate Pan/Zoom'): 'panZoom',
                         translate('ScatterPlot', 'Simulate Hover'): 'hover'},
                 )
-@param.interact_decorator(nest=False, mode=modeOpts)
+@param.interactDecorator(nest=False, mode=modeOpts)
 def update(mode='reuseItem'):
     global ptr, lastTime, fps
     if mode == 'newItem':
@@ -134,8 +137,7 @@ mkDataAndItem()
 param.child('paused').sigValueChanged.connect(lambda _, v: timer.stop() if v else timer.start())
 timer.timeout.connect(update)
 timer.start(0)
-
-ptree.Parameter.RUN_TITLE_FORMAT = oldFmt
+stack.close()
 
 if __name__ == '__main__':
     pg.exec()
